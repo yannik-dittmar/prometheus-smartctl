@@ -8,11 +8,11 @@ This is a simple exporter for the [Prometheus metrics](https://prometheus.io/) u
 
 _Note: You don't have to do this if you use the Docker image._
 
-1. Copy the `smartprom.service` file into `/etc/systemd/system` folder.
-2. Copy the `smartprom.py` file anywhere into your system.
-3. Modify `ExecStart=` in the `smartprom.service` so that it points to `smartprom.py` in your system.
-4. Run `chmod +x smartprom.py`
-5. Install Python dependencies for the root user, example: `sudo -H python3 -m pip install -r requirements.txt`
+1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/).
+2. Copy `smartprom.py`, `megaraid.py`, `pyproject.toml` and `uv.lock` into a folder on your system, example: `/var/lib/homelab/prometheus-smartctl`.
+3. Run `uv sync --locked --no-dev` in that folder. This installs the Python dependencies into a virtualenv in `.venv`.
+4. Copy the `smartprom.service` file into `/etc/systemd/system` folder.
+5. Modify `ExecStart=` in the `smartprom.service` so that it points to the folder from step 2.
 6. Run `systemctl enable smartprom` and `systemctl start smartprom`
 7. Your metrics will now be available at `http://localhost:9902`
 

@@ -7,6 +7,7 @@
 * Update Python 3.14
 * Update base Docker image to Alpine 3.24
 * Update GitHub Actions to current major versions
+* Migrate from pip/requirements.txt to uv (pyproject.toml + uv.lock); the systemd install now runs from a uv-managed virtualenv
 * Publish the Docker image to GitHub Container Registry instead of Docker Hub; `latest` is only tagged from the default branch
 
 ## v2.3.0 (20/01/2024)

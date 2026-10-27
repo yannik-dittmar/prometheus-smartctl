@@ -1,2 +1,0 @@
-prometheus-client==0.26.0
-croniter>=2.0.0
