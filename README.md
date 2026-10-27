@@ -91,6 +91,14 @@ smartprom_power_on_hours_raw{drive="megaraid,0",model_family="Western Digital Ul
 smartprom_power_on_time_hours{drive="megaraid,1",model_family="Unknown",model_name="HGST HUH728080AL5200",serial_number="XXXXXXXX",type="scsi",user_capacity="6001175126016"} 37341.0
 ```
 
+### Disk spin state
+
+`smartprom_disk_spinning` reports whether a disk is currently spinning (`1`, active or idle) or spun down (`0`, standby or sleep). It is `-1` if the state could not be determined. The state is checked with `smartctl -n standby`, which does not wake up a sleeping disk. The metric is updated on every refresh, even for idle disks whose SMART scan is skipped. NVMe drives are not included.
+
+```shell
+smartprom_disk_spinning{drive="/dev/sda",model_family="Seagate BarraCuda 3.5 (SMR)",model_name="ST6000DM003-2CY296",serial_number="WCT362XM",type="sat",user_capacity="6001175126016"} 0.0
+```
+
 ## Configuration
 
 All configuration is done with environment variables.

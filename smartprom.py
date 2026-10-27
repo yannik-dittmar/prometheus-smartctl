@@ -28,6 +28,12 @@ SAT_TYPES = ["sat", "usbjmicron", "usbprolific", "usbsunplus"]
 NVME_TYPES = ["nvme", "sntasmedia", "sntjmicron", "sntrealtek"]
 SCSI_TYPES = ["scsi"]
 
+# Exit code smartctl returns for "-n standby,N" when the disk is in STANDBY or SLEEP mode.
+# smartctl exit codes are bitmasks and bit 0 (command line error) always exits alone,
+# so an odd value other than 1 never collides with a regular exit code.
+STANDBY_EXIT_CODE = 7
+POWER_STATE_METRIC = "smartprom_disk_spinning"
+
 # IO tracking state
 DISK_IO_STATE: Dict[str, 'DiskIOState'] = {}
 
@@ -244,7 +250,7 @@ def check_cron_trigger() -> bool:
     return False
 
 
-def run_smartctl_cmd(args: list) -> Tuple[str, int]:
+def run_smartctl_cmd(args: list, expected_exit_codes: Tuple[int, ...] = (0,)) -> Tuple[str, int]:
     """
     Runs the smartctl command on the system
     """
@@ -254,7 +260,7 @@ def run_smartctl_cmd(args: list) -> Tuple[str, int]:
     # exit code can be != 0 even if the command returned valid data
     # see EXIT STATUS in
     # https://www.smartmontools.org/browser/trunk/smartmontools/smartctl.8.in
-    if out.returncode != 0:
+    if out.returncode not in expected_exit_codes:
         stdout_msg = stdout.decode("utf-8") if stdout is not None else ""
         stderr_msg = stderr.decode("utf-8") if stderr is not None else ""
         print(
@@ -327,6 +333,31 @@ def get_device_info(dev: str) -> dict:
         "serial_number": results.get("serial_number", "Unknown"),
         "user_capacity": user_capacity,
     }
+
+
+def get_power_state(drive: str, drive_attrs: dict) -> int:
+    """
+    Returns 1 if the disk is spinning (active or idle), 0 if it is spun down
+    (standby or sleep) or -1 if the state is unknown.
+
+    "smartctl -n standby" checks the power mode with CHECK POWER MODE (ATA) or
+    REQUEST SENSE (SCSI) and exits before sending any command that would wake the disk.
+    """
+    if "megaraid_id" in drive_attrs:
+        dev, typ = drive_attrs["bus_device"], drive_attrs["megaraid_id"]
+    else:
+        dev, typ = drive, drive_attrs["type"]
+
+    _, exit_code = run_smartctl_cmd(
+        ["smartctl", "-n", f"standby,{STANDBY_EXIT_CODE}", "-d", typ, "--json=c", dev],
+        expected_exit_codes=(0, STANDBY_EXIT_CODE),
+    )
+    if exit_code == STANDBY_EXIT_CODE:
+        return 0
+    # Bit 0: command line did not parse, bit 1: device open failed
+    if exit_code & 0b11:
+        return -1
+    return 1
 
 
 def get_smart_status(results: dict) -> int:
@@ -453,6 +484,31 @@ def collect(force_scan: bool = False, io_activity_threshold: int = 60):
     global LABELS, DRIVES, METRICS, SAT_TYPES, NVME_TYPES, SCSI_TYPES, DISK_IO_STATE
 
     for drive, drive_attrs in DRIVES.items():
+        labels = {
+            "drive": drive,
+            "type": drive_attrs["type"],
+            "model_family": drive_attrs["model_family"],
+            "model_name": drive_attrs["model_name"],
+            "serial_number": drive_attrs["serial_number"],
+            "user_capacity": drive_attrs["user_capacity"],
+        }
+
+        # Report spin state on every cycle, also for idle disks that are skipped below.
+        # NVMe drives do not spin and have their own power states, so they are left out.
+        if drive_attrs["type"] not in NVME_TYPES:
+            try:
+                if POWER_STATE_METRIC not in METRICS:
+                    METRICS[POWER_STATE_METRIC] = prometheus_client.Gauge(
+                        POWER_STATE_METRIC,
+                        "Disk spin state: 1 = spinning (active/idle), 0 = spun down (standby/sleep), -1 = unknown",
+                        LABELS,
+                    )
+                METRICS[POWER_STATE_METRIC].labels(**labels).set(
+                    get_power_state(drive, drive_attrs)
+                )
+            except Exception as e:
+                print("Exception:", e)
+
         # Check if this drive should be scanned
         if not should_scan_disk(drive, drive_attrs, force_scan, io_activity_threshold):
             print(f"Skipping idle disk {drive}")
@@ -501,14 +557,7 @@ def collect(force_scan: bool = False, io_activity_threshold: int = 60):
                 # Update metric
                 metric_val = values[1] if typ in SAT_TYPES else values
 
-                METRICS[metric].labels(
-                    drive=drive,
-                    type=typ,
-                    model_family=drive_attrs["model_family"],
-                    model_name=drive_attrs["model_name"],
-                    serial_number=drive_attrs["serial_number"],
-                    user_capacity=drive_attrs["user_capacity"],
-                ).set(metric_val)
+                METRICS[metric].labels(**labels).set(metric_val)
 
         except Exception as e:
             print("Exception:", e)

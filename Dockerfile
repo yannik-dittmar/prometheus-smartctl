@@ -1,4 +1,4 @@
-FROM python:3.12-alpine3.19
+FROM python:3.14-alpine3.24
 
 # Install smartmontools
 RUN apk add --no-cache smartmontools

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+* Add smartprom_disk_spinning metric (1 = spinning, 0 = spun down) that does not wake sleeping disks
+* Update prometheus-client 0.26.0
+* Update Python 3.14
+* Update base Docker image to Alpine 3.24
+* Update GitHub Actions to current major versions
+* Publish the Docker image to GitHub Container Registry instead of Docker Hub; `latest` is only tagged from the default branch
+
 ## v2.3.0 (20/01/2024)
 
 * Add support for drives connected by MegaRAID
