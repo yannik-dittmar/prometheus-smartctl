@@ -2,7 +2,7 @@
 Description=SMART Prometheus metrics
 
 [Service]
-ExecStart=/var/lib/homelab/smartprom.py
+ExecStart=/var/lib/homelab/prometheus-smartctl/.venv/bin/python -u /var/lib/homelab/prometheus-smartctl/smartprom.py
 Restart=always
 
 [Install]

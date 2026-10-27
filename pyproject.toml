@@ -1,0 +1,13 @@
+[project]
+name = "prometheus-smartctl"
+version = "2.3.0"
+description = "Prometheus exporter for S.M.A.R.T. metrics using smartctl"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "croniter>=6.2.4",
+    "prometheus-client>=0.26.0",
+]
+
+[tool.uv]
+package = false

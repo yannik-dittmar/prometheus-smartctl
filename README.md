@@ -8,11 +8,11 @@ This is a simple exporter for the [Prometheus metrics](https://prometheus.io/) u
 
 _Note: You don't have to do this if you use the Docker image._
 
-1. Copy the `smartprom.service` file into `/etc/systemd/system` folder.
-2. Copy the `smartprom.py` file anywhere into your system.
-3. Modify `ExecStart=` in the `smartprom.service` so that it points to `smartprom.py` in your system.
-4. Run `chmod +x smartprom.py`
-5. Install Python dependencies for the root user, example: `sudo -H python3 -m pip install -r requirements.txt`
+1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/).
+2. Copy `smartprom.py`, `megaraid.py`, `pyproject.toml` and `uv.lock` into a folder on your system, example: `/var/lib/homelab/prometheus-smartctl`.
+3. Run `uv sync --locked --no-dev` in that folder. This installs the Python dependencies into a virtualenv in `.venv`.
+4. Copy the `smartprom.service` file into `/etc/systemd/system` folder.
+5. Modify `ExecStart=` in the `smartprom.service` so that it points to the folder from step 2.
 6. Run `systemctl enable smartprom` and `systemctl start smartprom`
 7. Your metrics will now be available at `http://localhost:9902`
 
@@ -89,6 +89,14 @@ If you are using a MegaRAID card to connect the drives, the metrics will export 
 ```shell
 smartprom_power_on_hours_raw{drive="megaraid,0",model_family="Western Digital Ultrastar He10/12",model_name="WDC WD80EMAZ-00M9AA0",serial_number="XXXXXXXX",type="sat",user_capacity="6001175126016"} 28522.0
 smartprom_power_on_time_hours{drive="megaraid,1",model_family="Unknown",model_name="HGST HUH728080AL5200",serial_number="XXXXXXXX",type="scsi",user_capacity="6001175126016"} 37341.0
+```
+
+### Disk spin state
+
+`smartprom_disk_spinning` reports whether a disk is currently spinning (`1`, active or idle) or spun down (`0`, standby or sleep). It is `-1` if the state could not be determined. The state is checked with `smartctl -n standby`, which does not wake up a sleeping disk. The metric is updated on every refresh, even for idle disks whose SMART scan is skipped. NVMe drives are not included.
+
+```shell
+smartprom_disk_spinning{drive="/dev/sda",model_family="Seagate BarraCuda 3.5 (SMR)",model_name="ST6000DM003-2CY296",serial_number="WCT362XM",type="sat",user_capacity="6001175126016"} 0.0
 ```
 
 ## Configuration
